@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* ===============================
+   User
+=============================== */
+
+model User {
+  id              String      @id @default(uuid())
+  email           String      @unique
+  password        String
+  monthlyLimit    Float       @default(10.0)  // USD
+  maxTokensPerReq Int         @default(2000)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  apiKeys         ApiKey[]
+  executions      Execution[]
+
+  @@index([createdAt])
+}
+
+/* ===============================
+   API Key
+   - keyはSHA256ハッシュ保存
+=============================== */
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  name      String
+  key       String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/* ===============================
+   Execution Log
+=============================== */
+
+model Execution {
+  id               String   @id @default(uuid())
+  userId           String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  cost             Float
+  createdAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
