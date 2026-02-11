@@ -1,73 +1,41 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
-    <div style={styles.container}>
-      <div style={styles.hero}>
-        <h1 style={styles.title}>
-          Plato AI System
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white">
+
+      <div className="text-center max-w-3xl px-6">
+
+        <h1 className="text-5xl font-bold mb-6 tracking-tight">
+          Plato System
         </h1>
 
-        <p style={styles.subtitle}>
-          Optimize. Track. Control.
-          <br />
-          Your AI Costs.
+        <p className="text-zinc-400 text-lg mb-10">
+          Precision AI cost control. 
+          Execute models, track usage, 
+          eliminate waste.
         </p>
 
-        <div style={styles.buttons}>
-          <a href="/login" style={styles.primary}>
-            Login
-          </a>
-          <a
-            href="/register"
-            style={styles.secondary}
+        <div className="flex gap-6 justify-center">
+
+          <Link
+            href="/login"
+            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl transition"
           >
-            Create Account
-          </a>
+            Login
+          </Link>
+
+          <Link
+            href="/register"
+            className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition"
+          >
+            Register
+          </Link>
+
         </div>
+
       </div>
+
     </div>
   );
 }
-
-const styles: any = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40
-  },
-  hero: {
-    textAlign: "center",
-    maxWidth: 600
-  },
-  title: {
-    fontSize: 48,
-    letterSpacing: 1,
-    marginBottom: 20
-  },
-  subtitle: {
-    fontSize: 18,
-    opacity: 0.7,
-    marginBottom: 40
-  },
-  buttons: {
-    display: "flex",
-    gap: 20,
-    justifyContent: "center"
-  },
-  primary: {
-    padding: "12px 24px",
-    background: "#4f46e5",
-    borderRadius: 8,
-    textDecoration: "none",
-    color: "#fff"
-  },
-  secondary: {
-    padding: "12px 24px",
-    background: "#1f1f25",
-    borderRadius: 8,
-    textDecoration: "none",
-    color: "#fff"
-  }
-};
-
