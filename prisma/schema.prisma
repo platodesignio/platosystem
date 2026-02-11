@@ -43,15 +43,13 @@ model Execution {
   id               String   @id @default(uuid())
   userId           String
   model            String
+  prompt           String   // ← 追加
+  output           String
   promptTokens     Int
   completionTokens Int
-  totalTokens      Int
-  cost             Float
+  totalCost        Float
   createdAt        DateTime @default(now())
 
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([createdAt])
-  @@index([userId, createdAt])
+  user User @relation(fields: [userId], references: [id])
 }
+
