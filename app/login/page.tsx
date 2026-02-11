@@ -3,157 +3,90 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function Login() {
+export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] =
-    useState<string>("");
+    useState("");
+
   const [password, setPassword] =
-    useState<string>("");
+    useState("");
+
   const [error, setError] =
     useState<string | null>(null);
-  const [loading, setLoading] =
-    useState<boolean>(false);
 
-  async function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+  async function handleLogin() {
     setError(null);
-    setLoading(true);
 
-    try {
-      const res = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-            password
-          })
-        }
-      );
-
-      const data =
-        await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          data.error ||
-            "Login failed"
-        );
+    const res = await fetch(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
       }
+    );
 
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
+    if (!res.ok) {
       setError(
-        err.message ||
-          "Unexpected error"
+        "Invalid credentials"
       );
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    router.push("/app/dashboard");
   }
 
   return (
-    <div style={styles.center}>
-      <div style={styles.card}>
-        <h2>Login</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black">
 
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(
-              e: React.ChangeEvent<HTMLInputElement>
-            ) =>
-              setEmail(
-                e.target.value
-              )
-            }
-            style={styles.input}
-          />
+      <div className="bg-zinc-900 p-10 rounded-2xl w-full max-w-md border border-zinc-800">
 
-          <input
-            type="password"
-            required
-            placeholder="Password"
-            value={password}
-            onChange={(
-              e: React.ChangeEvent<HTMLInputElement>
-            ) =>
-              setPassword(
-                e.target.value
-              )
-            }
-            style={styles.input}
-          />
+        <h1 className="text-2xl font-bold mb-6">
+          Login
+        </h1>
 
-          <button
-            type="submit"
-            style={styles.primary}
-            disabled={loading}
-          >
-            {loading
-              ? "Loading..."
-              : "Login"}
-          </button>
+        {error && (
+          <div className="bg-red-600 p-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
-          {error && (
-            <div style={styles.error}>
-              {error}
-            </div>
-          )}
-        </form>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
+          className="w-full mb-4 p-3 bg-zinc-800 rounded-lg"
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
+          className="w-full mb-6 p-3 bg-zinc-800 rounded-lg"
+        />
+
+        <button
+          onClick={handleLogin}
+          className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg"
+        >
+          Login
+        </button>
+
       </div>
+
     </div>
   );
 }
-
-const styles: any = {
-  center: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  card: {
-    width: 380,
-    padding: 32,
-    background: "#1a1a1f",
-    borderRadius: 12,
-    display: "flex",
-    flexDirection: "column",
-    gap: 16
-  },
-  input: {
-    width: "100%",
-    padding: 12,
-    marginBottom: 16,
-    borderRadius: 8,
-    border: "1px solid #333",
-    background: "#222",
-    color: "#fff"
-  },
-  primary: {
-    width: "100%",
-    padding: 12,
-    background: "#4f46e5",
-    border: "none",
-    borderRadius: 8,
-    color: "#fff",
-    cursor: "pointer"
-  },
-  error: {
-    marginTop: 10,
-    color: "#ff4d4f"
-  }
-};
