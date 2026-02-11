@@ -7,9 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/* ===============================
-   User
-=============================== */
+
 
 model User {
   id              String      @id @default(uuid())
@@ -26,10 +24,6 @@ model User {
   @@index([createdAt])
 }
 
-/* ===============================
-   API Key
-   - keyはSHA256ハッシュ保存
-=============================== */
 
 model ApiKey {
   id        String   @id @default(uuid())
@@ -43,9 +37,7 @@ model ApiKey {
   @@index([userId])
 }
 
-/* ===============================
-   Execution Log
-=============================== */
+
 
 model Execution {
   id               String   @id @default(uuid())
@@ -63,4 +55,3 @@ model Execution {
   @@index([createdAt])
   @@index([userId, createdAt])
 }
-
