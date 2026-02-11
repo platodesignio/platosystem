@@ -2,18 +2,16 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white">
 
-      <div className="text-center max-w-3xl px-6">
+      <div className="text-center max-w-xl px-6">
 
-        <h1 className="text-5xl font-bold mb-6 tracking-tight">
+        <h1 className="text-5xl font-bold mb-6">
           Plato System
         </h1>
 
-        <p className="text-zinc-400 text-lg mb-10">
-          Precision AI cost control. 
-          Execute models, track usage, 
-          eliminate waste.
+        <p className="text-zinc-400 mb-10">
+          AI execution and cost control platform.
         </p>
 
         <div className="flex gap-6 justify-center">
@@ -35,7 +33,6 @@ export default function Home() {
         </div>
 
       </div>
-
     </div>
   );
 }
