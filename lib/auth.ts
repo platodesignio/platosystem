@@ -2,13 +2,17 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 /* ===============================
-   環境変数チェック
+   安全に環境変数取得
 =============================== */
 
-const JWT_SECRET = process.env.JWT_SECRET;
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is not defined");
+  if (!secret) {
+    throw new Error("JWT_SECRET is not defined");
+  }
+
+  return secret;
 }
 
 const JWT_EXPIRES_IN = "7d";
@@ -37,7 +41,7 @@ export async function verifyPassword(
 export function signToken(userId: string): string {
   return jwt.sign(
     { userId },
-    JWT_SECRET as string,
+    getJwtSecret(),
     {
       expiresIn: JWT_EXPIRES_IN
     }
@@ -48,12 +52,12 @@ export function signToken(userId: string): string {
    JWT検証
 =============================== */
 
-export function verifyToken(token: string): {
-  userId: string;
-} {
+export function verifyToken(
+  token: string
+): { userId: string } {
   const decoded = jwt.verify(
     token,
-    JWT_SECRET as string
+    getJwtSecret()
   ) as { userId: string };
 
   if (!decoded.userId) {
