@@ -1,196 +1,45 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { callOpenAI } from "@/lib/adapters/openai.adapter";
-import { calculateCost } from "@/lib/cost.engine";
-import { estimateTokens } from "@/lib/token.util";
-import { getCurrentMonthUsage } from "@/lib/usage.engine";
-import { hashApiKey } from "@/lib/key.util";
-import { checkRateLimit } from "@/lib/rate-limit";
 
-/* ===============================
-   認証（JWT or API Key）
-=============================== */
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-async function authenticate(req: Request) {
-  // JWT Cookie 認証
-  const cookieHeader = req.headers.get("cookie");
-
-  if (cookieHeader) {
-    const match = cookieHeader.match(/token=([^;]+)/);
-
-    if (match && match[1]) {
-      try {
-        const decoded = verifyToken(match[1]);
-
-        return prisma.user.findUnique({
-          where: { id: decoded.userId }
-        });
-      } catch {
-        // 無効トークンは無視
-      }
-    }
-  }
-
-  // APIキー認証
-  const apiKeyHeader = req.headers.get("x-api-key");
-
-  if (apiKeyHeader) {
-    const hashed = hashApiKey(apiKeyHeader);
-
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { key: hashed }
-    });
-
-    if (apiKey) {
-      return prisma.user.findUnique({
-        where: { id: apiKey.userId }
-      });
-    }
-  }
-
-  return null;
-}
-
-/* ===============================
-   POST
-=============================== */
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    /* ---------- 認証 ---------- */
+    const token = req.cookies.get("token")?.value;
 
-    const user = await authenticate(req);
-
-    if (!user) {
+    if (!token) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    /* ---------- レート制限 ---------- */
+    const decoded = verifyToken(token);
 
-    if (!checkRateLimit(user.id)) {
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
       return NextResponse.json(
-        { error: "Rate limit exceeded" },
-        { status: 429 }
+        { error: "User not found" },
+        { status: 404 }
       );
     }
-
-    /* ---------- リクエスト検証 ---------- */
 
     const body = await req.json();
     const { model, prompt } = body;
 
-    if (
-      !model ||
-      !prompt ||
-      typeof prompt !== "string"
-    ) {
-      return NextResponse.json(
-        { error: "Invalid request" },
-        { status: 400 }
-      );
-    }
-
-    /* ---------- モデル制限 ---------- */
-
-    const allowedModels = ["gpt-4o", "gpt-4o-mini"];
-
-    if (!allowedModels.includes(model)) {
-      return NextResponse.json(
-        { error: "Model not allowed" },
-        { status: 403 }
-      );
-    }
-
-    /* ---------- 月間上限チェック ---------- */
-
-    const currentUsage = await getCurrentMonthUsage(
-      user.id
-    );
-
-    if (currentUsage >= user.monthlyLimit) {
-      return NextResponse.json(
-        { error: "Monthly limit exceeded" },
-        { status: 403 }
-      );
-    }
-
-    /* ---------- 事前トークン推定 ---------- */
-
-    const estimatedTokens = estimateTokens(prompt);
-
-    if (estimatedTokens > user.maxTokensPerReq) {
-      return NextResponse.json(
-        { error: "Prompt too large" },
-        { status: 403 }
-      );
-    }
-
-    /* ---------- AI実行 ---------- */
-
-    const aiResult = await callOpenAI(
+    const result = await callOpenAI(
       model,
       prompt,
       user.maxTokensPerReq
     );
 
-    const totalTokens =
-      aiResult.promptTokens +
-      aiResult.completionTokens;
-
-    /* ---------- 実トークン再チェック ---------- */
-
-    if (totalTokens > user.maxTokensPerReq) {
-      return NextResponse.json(
-        { error: "Token limit exceeded" },
-        { status: 403 }
-      );
-    }
-
-    /* ---------- コスト計算 ---------- */
-
-    const cost = calculateCost(
-      model,
-      aiResult.promptTokens,
-      aiResult.completionTokens
-    );
-
-    /* ---------- 最終上限検証 ---------- */
-
-    if (currentUsage + cost > user.monthlyLimit) {
-      return NextResponse.json(
-        { error: "Monthly limit would be exceeded" },
-        { status: 403 }
-      );
-    }
-
-    /* ---------- ログ保存 ---------- */
-
-    await prisma.execution.create({
-      data: {
-        userId: user.id,
-        model,
-        promptTokens: aiResult.promptTokens,
-        completionTokens: aiResult.completionTokens,
-        totalTokens,
-        cost
-      }
-    });
-
-    /* ---------- レスポンス ---------- */
-
-    return NextResponse.json({
-      content: aiResult.content,
-      usage: {
-        promptTokens: aiResult.promptTokens,
-        completionTokens: aiResult.completionTokens,
-        totalTokens,
-        cost
-      }
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Execute error:", error);
 
@@ -200,3 +49,4 @@ export async function POST(req: Request) {
     );
   }
 }
+
