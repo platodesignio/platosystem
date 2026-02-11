@@ -2,23 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 /* ===============================
-   安全に環境変数取得
-=============================== */
-
-function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is not defined");
-  }
-
-  return secret;
-}
-
-const JWT_EXPIRES_IN = "7d";
-
-/* ===============================
-   パスワードハッシュ
+   パスワード
 =============================== */
 
 export async function hashPassword(
@@ -35,29 +19,37 @@ export async function verifyPassword(
 }
 
 /* ===============================
-   JWT署名
+   JWT
 =============================== */
 
-export function signToken(userId: string): string {
-  return jwt.sign(
-    { userId },
-    getJwtSecret(),
-    {
-      expiresIn: JWT_EXPIRES_IN
-    }
-  );
+function requireJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    throw new Error("JWT_SECRET is not defined");
+  }
+
+  return secret;
 }
 
-/* ===============================
-   JWT検証
-=============================== */
+export function signToken(userId: string): string {
+  const secret = requireJwtSecret();
+
+  return jwt.sign(
+    { userId },
+    secret,
+    { expiresIn: "7d" }
+  );
+}
 
 export function verifyToken(
   token: string
 ): { userId: string } {
+  const secret = requireJwtSecret();
+
   const decoded = jwt.verify(
     token,
-    getJwtSecret()
+    secret
   ) as { userId: string };
 
   if (!decoded.userId) {
@@ -66,3 +58,4 @@ export function verifyToken(
 
   return decoded;
 }
+
