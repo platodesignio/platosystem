@@ -1,25 +1,23 @@
 import OpenAI from "openai";
 
 /* ===============================
-   環境変数チェック
+   実行時にクライアント生成
 =============================== */
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+function getClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
 
-if (!OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is not defined");
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not defined");
+  }
+
+  return new OpenAI({
+    apiKey
+  });
 }
 
 /* ===============================
-   クライアント初期化
-=============================== */
-
-const client = new OpenAI({
-  apiKey: OPENAI_API_KEY
-});
-
-/* ===============================
-   型定義
+   型
 =============================== */
 
 type OpenAIResult = {
@@ -29,7 +27,7 @@ type OpenAIResult = {
 };
 
 /* ===============================
-   メイン呼び出し
+   呼び出し
 =============================== */
 
 export async function callOpenAI(
@@ -37,39 +35,30 @@ export async function callOpenAI(
   prompt: string,
   maxTokens?: number
 ): Promise<OpenAIResult> {
-  try {
-    const response =
-      await client.chat.completions.create({
-        model,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens ?? 1024
-      });
+  const client = getClient();
 
-    const content =
-      response.choices?.[0]?.message?.content ?? "";
+  const response =
+    await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: maxTokens ?? 1024
+    });
 
-    const usage = response.usage;
+  const content =
+    response.choices?.[0]?.message?.content ?? "";
 
-    return {
-      content,
-      promptTokens: usage?.prompt_tokens ?? 0,
-      completionTokens: usage?.completion_tokens ?? 0
-    };
-  } catch (error: any) {
-    console.error("OpenAI API error:", error);
+  const usage = response.usage;
 
-    // OpenAIのエラー構造に対応
-    if (error?.status) {
-      throw new Error(
-        `OpenAI error (${error.status})`
-      );
-    }
-
-    throw new Error("OpenAI request failed");
-  }
+  return {
+    content,
+    promptTokens: usage?.prompt_tokens ?? 0,
+    completionTokens:
+      usage?.completion_tokens ?? 0
+  };
 }
+
