@@ -5,63 +5,72 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const { prisma } = await import("@/lib/prisma");
-    const { verifyToken } = await import("@/lib/auth");
+    const { prisma } =
+      await import("@/lib/prisma");
+    const { verifyToken } =
+      await import("@/lib/auth");
 
-    const token = req.cookies.get("token")?.value;
+    const cookie =
+      req.cookies.get("token");
 
-    if (!token) {
+    if (!cookie) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded =
+      verifyToken(cookie.value);
 
     const now = new Date();
-
-    const startOfMonth = new Date(
+    const firstDay = new Date(
       now.getFullYear(),
       now.getMonth(),
       1
     );
 
-    const monthly =
+    const result =
       await prisma.execution.aggregate({
         where: {
           userId: decoded.userId,
-          createdAt: { gte: startOfMonth }
+          createdAt: {
+            gte: firstDay
+          }
         },
         _sum: {
-          cost: true,
-          totalTokens: true
+          totalCost: true,
+          promptTokens: true,
+          completionTokens: true
         },
         _count: true
       });
 
-    const recent =
-      await prisma.execution.findMany({
-        where: { userId: decoded.userId },
-        orderBy: { createdAt: "desc" },
-        take: 5
-      });
+    const totalTokens =
+      (result._sum.promptTokens || 0) +
+      (result._sum.completionTokens ||
+        0);
 
     return NextResponse.json({
       monthly: {
-        used: monthly._sum.cost ?? 0,
-        totalTokens:
-          monthly._sum.totalTokens ?? 0,
+        used:
+          result._sum.totalCost || 0,
+        totalTokens,
         executionCount:
-          monthly._count ?? 0
-      },
-      recent
+          result._count || 0
+      }
     });
   } catch (error) {
-    console.error("Dashboard error:", error);
+    console.error(
+      "Dashboard API error:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error:
+          "Internal server error"
+      },
       { status: 500 }
     );
   }
