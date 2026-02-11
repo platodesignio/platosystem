@@ -1,64 +1,53 @@
 import OpenAI from "openai";
 
-/* ===============================
-   実行時にクライアント生成
-=============================== */
-
-function getClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not defined");
-  }
-
-  return new OpenAI({
-    apiKey
-  });
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error(
+    "OPENAI_API_KEY is not defined"
+  );
 }
 
-/* ===============================
-   型
-=============================== */
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
-type OpenAIResult = {
-  content: string;
+export type OpenAIResult = {
+  output: string;
   promptTokens: number;
   completionTokens: number;
 };
 
-/* ===============================
-   呼び出し
-=============================== */
-
-export async function callOpenAI(
+export async function runOpenAI(
   model: string,
-  prompt: string,
-  maxTokens?: number
+  prompt: string
 ): Promise<OpenAIResult> {
-  const client = getClient();
+  try {
+    const response =
+      await client.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      });
 
-  const response =
-    await client.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: maxTokens ?? 1024
-    });
-
-  const content =
-    response.choices?.[0]?.message?.content ?? "";
-
-  const usage = response.usage;
-
-  return {
-    content,
-    promptTokens: usage?.prompt_tokens ?? 0,
-    completionTokens:
-      usage?.completion_tokens ?? 0
-  };
+    return {
+      output:
+        response.choices[0]
+          ?.message?.content ?? "",
+      promptTokens:
+        response.usage
+          ?.prompt_tokens ?? 0,
+      completionTokens:
+        response.usage
+          ?.completion_tokens ?? 0
+    };
+  } catch (error) {
+    console.error(
+      "OPENAI ERROR:",
+      error
+    );
+    throw error;
+  }
 }
-
