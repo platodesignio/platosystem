@@ -1,60 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { hashApiKey } from "@/lib/key.util";
 
-/* ===============================
-   認証
-=============================== */
-
-async function authenticate(req: NextRequest) {
-  const token = req.cookies.get("token")?.value;
-
-  if (token) {
-    try {
-      const decoded = verifyToken(token);
-
-      return prisma.user.findUnique({
-        where: { id: decoded.userId }
-      });
-    } catch {
-      // 無効トークンは無視
-    }
-  }
-
-  const apiKeyHeader = req.headers.get("x-api-key");
-
-  if (apiKeyHeader) {
-    const hashed = hashApiKey(apiKeyHeader);
-
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { key: hashed }
-    });
-
-    if (apiKey) {
-      return prisma.user.findUnique({
-        where: { id: apiKey.userId }
-      });
-    }
-  }
-
-  return null;
-}
-
-/* ===============================
-   GET
-=============================== */
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await authenticate(req);
+    const { prisma } = await import("@/lib/prisma");
+    const { verifyToken } = await import("@/lib/auth");
 
-    if (!user) {
+    const token = req.cookies.get("token")?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
+
+    const decoded = verifyToken(token);
 
     const now = new Date();
 
@@ -64,16 +27,10 @@ export async function GET(req: NextRequest) {
       1
     );
 
-    const startOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
-
-    const monthlyAggregate =
+    const monthly =
       await prisma.execution.aggregate({
         where: {
-          userId: user.id,
+          userId: decoded.userId,
           createdAt: { gte: startOfMonth }
         },
         _sum: {
@@ -83,59 +40,17 @@ export async function GET(req: NextRequest) {
         _count: true
       });
 
-    const monthlyUsed =
-      monthlyAggregate._sum.cost ?? 0;
-
-    const monthlyTokens =
-      monthlyAggregate._sum.totalTokens ?? 0;
-
-    const monthlyCount =
-      monthlyAggregate._count ?? 0;
-
-    const remaining = Math.max(
-      0,
-      user.monthlyLimit - monthlyUsed
-    );
-
-    const dailyAggregate =
-      await prisma.execution.aggregate({
-        where: {
-          userId: user.id,
-          createdAt: { gte: startOfDay }
-        },
-        _sum: {
-          cost: true,
-          totalTokens: true
-        },
-        _count: true
-      });
-
-    const dailyUsed =
-      dailyAggregate._sum.cost ?? 0;
-
-    const dailyTokens =
-      dailyAggregate._sum.totalTokens ?? 0;
-
-    const dailyCount =
-      dailyAggregate._count ?? 0;
-
     return NextResponse.json({
       monthly: {
-        limit: user.monthlyLimit,
-        used: monthlyUsed,
-        remaining,
-        executionCount: monthlyCount,
-        totalTokens: monthlyTokens
-      },
-      daily: {
-        used: dailyUsed,
-        executionCount: dailyCount,
-        totalTokens: dailyTokens
-      },
-      maxTokensPerReq: user.maxTokensPerReq
+        used: monthly._sum.cost ?? 0,
+        totalTokens:
+          monthly._sum.totalTokens ?? 0,
+        executionCount:
+          monthly._count ?? 0
+      }
     });
   } catch (error) {
-    console.error("Usage API error:", error);
+    console.error("Usage error:", error);
 
     return NextResponse.json(
       { error: "Internal server error" },
