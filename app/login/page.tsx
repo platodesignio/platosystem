@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function Login() {
   const router = useRouter();
+
   const [email, setEmail] =
     useState("");
   const [password, setPassword] =
@@ -14,12 +15,12 @@ export default function Login() {
   const [loading, setLoading] =
     useState(false);
 
-  async function handleLogin(
+  async function handleSubmit(
     e: React.FormEvent
   ) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
     try {
       const res = await fetch(
@@ -43,8 +44,7 @@ export default function Login() {
 
       if (!res.ok) {
         throw new Error(
-          data.error ||
-            "Login failed"
+          data.error
         );
       }
 
@@ -58,40 +58,100 @@ export default function Login() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h2>Login</h2>
-      <form onSubmit={handleLogin}>
-        <input
+    <AuthLayout title="Login">
+      <form onSubmit={handleSubmit}>
+        <Input
           type="email"
           placeholder="Email"
-          required
           value={email}
           onChange={(e) =>
             setEmail(e.target.value)
           }
         />
-        <br />
-        <input
+        <Input
           type="password"
           placeholder="Password"
-          required
           value={password}
           onChange={(e) =>
             setPassword(e.target.value)
           }
         />
-        <br />
-        <button disabled={loading}>
+
+        <button style={styles.primary}>
           {loading
             ? "Loading..."
             : "Login"}
         </button>
+
+        {error && (
+          <div style={styles.error}>
+            {error}
+          </div>
+        )}
       </form>
-      {error && (
-        <p style={{ color: "red" }}>
-          {error}
-        </p>
-      )}
+    </AuthLayout>
+  );
+}
+
+/* Shared Components */
+
+function AuthLayout({
+  title,
+  children
+}: any) {
+  return (
+    <div style={styles.center}>
+      <div style={styles.card}>
+        <h2>{title}</h2>
+        {children}
+      </div>
     </div>
   );
 }
+
+function Input(props: any) {
+  return (
+    <input
+      {...props}
+      required
+      style={styles.input}
+    />
+  );
+}
+
+const styles: any = {
+  center: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  card: {
+    width: 380,
+    padding: 32,
+    background: "#1a1a1f",
+    borderRadius: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 16
+  },
+  input: {
+    padding: 12,
+    borderRadius: 8,
+    border: "1px solid #333",
+    background: "#222",
+    color: "#fff"
+  },
+  primary: {
+    padding: 12,
+    background: "#4f46e5",
+    border: "none",
+    borderRadius: 8,
+    color: "#fff",
+    cursor: "pointer"
+  },
+  error: {
+    marginTop: 10,
+    color: "#ff4d4f"
+  }
+};
