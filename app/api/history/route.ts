@@ -4,7 +4,7 @@ import { verifyToken } from "@/lib/auth";
 import { hashApiKey } from "@/lib/key.util";
 
 /* ===============================
-   Cookie安全取得
+   安全Cookie取得
 =============================== */
 
 function getCookieValue(
@@ -80,53 +80,90 @@ export async function GET(req: Request) {
       );
     }
 
-    const url = new URL(req.url);
+    const now = new Date();
 
-    const limitParam = url.searchParams.get("limit");
-    const fromParam = url.searchParams.get("from");
-    const toParam = url.searchParams.get("to");
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
 
-    const limit = limitParam
-      ? Math.min(parseInt(limitParam, 10), 100)
-      : 50;
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
-    const whereClause: any = {
-      userId: user.id
-    };
+    /* ---------- 今月集計 ---------- */
 
-    if (fromParam || toParam) {
-      whereClause.createdAt = {};
+    const monthlyAggregate =
+      await prisma.execution.aggregate({
+        where: {
+          userId: user.id,
+          createdAt: { gte: startOfMonth }
+        },
+        _sum: {
+          cost: true,
+          totalTokens: true
+        },
+        _count: true
+      });
 
-      if (fromParam) {
-        whereClause.createdAt.gte = new Date(fromParam);
-      }
+    const monthlyUsed =
+      monthlyAggregate._sum.cost ?? 0;
 
-      if (toParam) {
-        whereClause.createdAt.lte = new Date(toParam);
-      }
-    }
+    const monthlyTokens =
+      monthlyAggregate._sum.totalTokens ?? 0;
 
-    const executions = await prisma.execution.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        model: true,
-        promptTokens: true,
-        completionTokens: true,
-        totalTokens: true,
-        cost: true,
-        createdAt: true
-      }
-    });
+    const monthlyCount =
+      monthlyAggregate._count ?? 0;
+
+    const remaining = Math.max(
+      0,
+      user.monthlyLimit - monthlyUsed
+    );
+
+    /* ---------- 本日集計 ---------- */
+
+    const dailyAggregate =
+      await prisma.execution.aggregate({
+        where: {
+          userId: user.id,
+          createdAt: { gte: startOfDay }
+        },
+        _sum: {
+          cost: true,
+          totalTokens: true
+        },
+        _count: true
+      });
+
+    const dailyUsed =
+      dailyAggregate._sum.cost ?? 0;
+
+    const dailyTokens =
+      dailyAggregate._sum.totalTokens ?? 0;
+
+    const dailyCount =
+      dailyAggregate._count ?? 0;
 
     return NextResponse.json({
-      count: executions.length,
-      data: executions
+      monthly: {
+        limit: user.monthlyLimit,
+        used: monthlyUsed,
+        remaining,
+        executionCount: monthlyCount,
+        totalTokens: monthlyTokens
+      },
+      daily: {
+        used: dailyUsed,
+        executionCount: dailyCount,
+        totalTokens: dailyTokens
+      },
+      maxTokensPerReq: user.maxTokensPerReq
     });
   } catch (error) {
-    console.error("History API error:", error);
+    console.error("Usage API error:", error);
 
     return NextResponse.json(
       { error: "Internal server error" },
@@ -134,3 +171,4 @@ export async function GET(req: Request) {
     );
   }
 }
+
