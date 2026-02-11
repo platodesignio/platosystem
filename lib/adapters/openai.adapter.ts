@@ -1,11 +1,5 @@
 import OpenAI from "openai";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error(
-    "OPENAI_API_KEY is not defined"
-  );
-}
-
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -22,30 +16,29 @@ export async function runOpenAI(
 ): Promise<OpenAIResult> {
   try {
     const response =
-      await client.chat.completions.create({
+      await client.responses.create({
         model,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+        input: prompt
       });
 
+    const output =
+      response.output_text ?? "";
+
+    const usage = response.usage ?? {
+      input_tokens: 0,
+      output_tokens: 0
+    };
+
     return {
-      output:
-        response.choices[0]
-          ?.message?.content ?? "",
+      output,
       promptTokens:
-        response.usage
-          ?.prompt_tokens ?? 0,
+        usage.input_tokens ?? 0,
       completionTokens:
-        response.usage
-          ?.completion_tokens ?? 0
+        usage.output_tokens ?? 0
     };
   } catch (error) {
     console.error(
-      "OPENAI ERROR:",
+      "OPENAI FULL ERROR:",
       error
     );
     throw error;
