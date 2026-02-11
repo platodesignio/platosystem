@@ -110,4 +110,50 @@ export default function Login() {
           {error && (
             <div style={styles.error}>
               {error}
-            <
+            </div>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const styles: any = {
+  center: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  card: {
+    width: 380,
+    padding: 32,
+    background: "#1a1a1f",
+    borderRadius: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 16
+  },
+  input: {
+    width: "100%",
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 8,
+    border: "1px solid #333",
+    background: "#222",
+    color: "#fff"
+  },
+  primary: {
+    width: "100%",
+    padding: 12,
+    background: "#4f46e5",
+    border: "none",
+    borderRadius: 8,
+    color: "#fff",
+    cursor: "pointer"
+  },
+  error: {
+    marginTop: 10,
+    color: "#ff4d4f"
+  }
+};
