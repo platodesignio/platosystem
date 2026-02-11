@@ -15,22 +15,26 @@ import { checkRateLimit } from "@/lib/rate-limit";
 async function authenticate(req: Request) {
   // JWT Cookie 認証
   const cookieHeader = req.headers.get("cookie");
+
   if (cookieHeader) {
     const match = cookieHeader.match(/token=([^;]+)/);
-    if (match) {
+
+    if (match && match[1]) {
       try {
         const decoded = verifyToken(match[1]);
+
         return prisma.user.findUnique({
           where: { id: decoded.userId }
         });
       } catch {
-        // 続けてAPIキー確認
+        // 無効トークンは無視
       }
     }
   }
 
   // APIキー認証
   const apiKeyHeader = req.headers.get("x-api-key");
+
   if (apiKeyHeader) {
     const hashed = hashApiKey(apiKeyHeader);
 
