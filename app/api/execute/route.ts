@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { callOpenAI } from "@/lib/adapters/openai.adapter";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    // すべて実行時ロード
+    const { prisma } = await import("@/lib/prisma");
+    const { verifyToken } = await import("@/lib/auth");
+    const { callOpenAI } = await import(
+      "@/lib/adapters/openai.adapter"
+    );
+    const { calculateCost } = await import(
+      "@/lib/cost.engine"
+    );
+    const { estimateTokens } = await import(
+      "@/lib/token.util"
+    );
+
     const token = req.cookies.get("token")?.value;
 
     if (!token) {
@@ -33,13 +43,57 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { model, prompt } = body;
 
-    const result = await callOpenAI(
+    const estimatedTokens =
+      estimateTokens(prompt);
+
+    if (
+      estimatedTokens > user.maxTokensPerReq
+    ) {
+      return NextResponse.json(
+        { error: "Prompt too large" },
+        { status: 400 }
+      );
+    }
+
+    const aiResult = await callOpenAI(
       model,
       prompt,
       user.maxTokensPerReq
     );
 
-    return NextResponse.json(result);
+    const totalTokens =
+      aiResult.promptTokens +
+      aiResult.completionTokens;
+
+    const cost = calculateCost(
+      model,
+      aiResult.promptTokens,
+      aiResult.completionTokens
+    );
+
+    await prisma.execution.create({
+      data: {
+        userId: user.id,
+        model,
+        promptTokens: aiResult.promptTokens,
+        completionTokens:
+          aiResult.completionTokens,
+        totalTokens,
+        cost
+      }
+    });
+
+    return NextResponse.json({
+      content: aiResult.content,
+      usage: {
+        promptTokens:
+          aiResult.promptTokens,
+        completionTokens:
+          aiResult.completionTokens,
+        totalTokens,
+        cost
+      }
+    });
   } catch (error) {
     console.error("Execute error:", error);
 
@@ -49,4 +103,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
