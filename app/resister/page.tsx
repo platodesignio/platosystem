@@ -8,28 +8,13 @@ export default function RegisterPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function handleRegister(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!email || !password) return;
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -37,118 +22,60 @@ export default function RegisterPage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          email,
-          password
-        })
+        credentials: "include",
+        body: JSON.stringify({ email, password })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Registration failed");
-        setLoading(false);
-        return;
+        throw new Error(data.error || "Register failed");
       }
 
-      // 登録成功 → ダッシュボードへ
       router.push("/dashboard");
-    } catch (err) {
-      setError("Unexpected error occurred");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 400,
-        margin: "80px auto",
-        padding: 30,
-        backgroundColor: "#f5f5f5"
-      }}
-    >
+    <div style={{ padding: 40 }}>
       <h1>Register</h1>
 
-      <form onSubmit={handleRegister}>
-        <div style={{ marginBottom: 20 }}>
-          <label>Email</label>
+      <form onSubmit={handleSubmit}>
+        <div>
           <input
             type="email"
+            placeholder="Email"
+            required
             value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            required
-            style={{
-              width: "100%",
-              padding: 8,
-              marginTop: 5
-            }}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label>Password</label>
+        <div>
           <input
             type="password"
+            placeholder="Password"
+            required
             value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            required
-            style={{
-              width: "100%",
-              padding: 8,
-              marginTop: 5
-            }}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) =>
-              setConfirmPassword(e.target.value)
-            }
-            required
-            style={{
-              width: "100%",
-              padding: 8,
-              marginTop: 5
-            }}
-          />
-        </div>
-
-        {error && (
-          <div
-            style={{
-              marginBottom: 15,
-              color: "red"
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            backgroundColor: "#111",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer"
-          }}
-        >
-          {loading ? "Creating account..." : "Register"}
+        <button type="submit" disabled={loading}>
+          {loading ? "Loading..." : "Register"}
         </button>
       </form>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <p>
+        Already have an account? <a href="/login">Login</a>
+      </p>
     </div>
   );
 }
