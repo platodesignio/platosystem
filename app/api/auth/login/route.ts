@@ -1,63 +1,66 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyPassword, signToken } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
 
-function extractBodyError() {
-  return NextResponse.json(
-    { error: "Invalid credentials" },
-    { status: 401 }
-  );
-}
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { email, password } = body;
+    const { prisma } = await import("@/lib/prisma");
+    const { verifyPassword, signToken } =
+      await import("@/lib/auth");
 
-    if (
-      !email ||
-      !password ||
-      typeof email !== "string" ||
-      typeof password !== "string"
-    ) {
-      return extractBodyError();
-    }
+    const { email, password } =
+      await req.json();
 
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
+    const user =
+      await prisma.user.findUnique({
+        where: { email }
+      });
 
-    // 存在しない場合も同じレスポンス
     if (!user) {
-      return extractBodyError();
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
     }
 
-    const isValid = await verifyPassword(
-      password,
-      user.password
-    );
+    const valid =
+      await verifyPassword(
+        password,
+        user.password
+      );
 
-    if (!isValid) {
-      return extractBodyError();
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
     }
 
-    const token = signToken(user.id);
+    const token =
+      signToken(user.id);
 
-    const response = NextResponse.json({
-      success: true
-    });
+    const response =
+      NextResponse.json({
+        success: true
+      });
 
-    response.cookies.set("token", token, {
+    response.cookies.set({
+      name: "token",
+      value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,        // Vercel本番は必ずtrue
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7 // 7日
+      maxAge: 60 * 60 * 24 * 7
     });
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    console.error(
+      "Login error:",
+      error
+    );
 
     return NextResponse.json(
       { error: "Internal server error" },
