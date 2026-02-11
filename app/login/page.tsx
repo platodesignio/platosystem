@@ -7,118 +7,120 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] =
+    useState("");
+  const [loading, setLoading] =
+    useState(false);
+  const [error, setError] =
+    useState<string | null>(null);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
-
-    if (!email || !password) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
+      const response = await fetch(
+        "/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          credentials: "include", // ★重要
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
 
-      const data = await res.json();
+      const data =
+        await response.json();
 
-      if (!res.ok) {
-        setError(data.error || "Login failed");
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Login failed"
+        );
       }
 
-      // 成功時 dashboard へ
+      // ログイン成功 → ダッシュボードへ
       router.push("/dashboard");
-    } catch (err) {
-      setError("Unexpected error occurred");
+      router.refresh();
+    } catch (err: any) {
+      setError(
+        err.message ||
+          "Login error"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
     <div
       style={{
-        maxWidth: 400,
-        margin: "80px auto",
-        padding: 30,
-        backgroundColor: "#f5f5f5"
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
       }}
     >
-      <h1>Login</h1>
+      <form
+        onSubmit={handleLogin}
+        style={{
+          width: 320,
+          display: "flex",
+          flexDirection: "column",
+          gap: 16
+        }}
+      >
+        <h2>Login</h2>
 
-      <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: 20 }}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            required
-            style={{
-              width: "100%",
-              padding: 8,
-              marginTop: 5
-            }}
-          />
-        </div>
+        <input
+          type="email"
+          placeholder="Email"
+          required
+          value={email}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
+        />
 
-        <div style={{ marginBottom: 20 }}>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            required
-            style={{
-              width: "100%",
-              padding: 8,
-              marginTop: 5
-            }}
-          />
-        </div>
+        <input
+          type="password"
+          placeholder="Password"
+          required
+          value={password}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+        >
+          {loading
+            ? "Logging in..."
+            : "Login"}
+        </button>
 
         {error && (
           <div
             style={{
-              marginBottom: 15,
-              color: "red"
+              color: "red",
+              fontSize: 14
             }}
           >
             {error}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            backgroundColor: "#111",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer"
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
       </form>
     </div>
   );
