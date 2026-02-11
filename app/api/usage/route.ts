@@ -4,28 +4,55 @@ import { verifyToken } from "@/lib/auth";
 import { hashApiKey } from "@/lib/key.util";
 
 /* ===============================
-   認証ヘルパー
+   Cookie安全取得
 =============================== */
 
-async function authenticate(req: Request) {
-  // JWT Cookie
-  const cookieHeader = req.headers.get("cookie");
-  if (cookieHeader) {
-    const match = cookieHeader.match(/token=([^;]+)/);
-    if (match) {
-      try {
-        const decoded = verifyToken(match[1]);
-        return prisma.user.findUnique({
-          where: { id: decoded.userId }
-        });
-      } catch {
-        // APIキーへフォールバック
-      }
+function getCookieValue(
+  cookieHeader: string | null,
+  name: string
+): string | null {
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";");
+
+  for (const cookie of cookies) {
+    const parts = cookie.trim().split("=");
+    if (parts.length !== 2) continue;
+
+    const key = parts[0];
+    const value = parts[1];
+
+    if (key === name && value) {
+      return value;
     }
   }
 
-  // APIキー
+  return null;
+}
+
+/* ===============================
+   認証
+=============================== */
+
+async function authenticate(req: Request) {
+  const cookieHeader = req.headers.get("cookie");
+
+  const token = getCookieValue(cookieHeader, "token");
+
+  if (token) {
+    try {
+      const decoded = verifyToken(token);
+
+      return prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
+    } catch {
+      // 無効トークンは無視
+    }
+  }
+
   const apiKeyHeader = req.headers.get("x-api-key");
+
   if (apiKeyHeader) {
     const hashed = hashApiKey(apiKeyHeader);
 
@@ -44,7 +71,7 @@ async function authenticate(req: Request) {
 }
 
 /* ===============================
-   GET: 使用状況取得
+   GET
 =============================== */
 
 export async function GET(req: Request) {
@@ -124,8 +151,6 @@ export async function GET(req: Request) {
 
     const dailyCount =
       dailyAggregate._count ?? 0;
-
-    /* ---------- レスポンス ---------- */
 
     return NextResponse.json({
       monthly: {
