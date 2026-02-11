@@ -7,121 +7,76 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
-  const [loading, setLoading] =
-    useState(false);
-  const [error, setError] =
-    useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function handleLogin(
-    e: React.FormEvent
-  ) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-          credentials: "include", // ★重要
-          body: JSON.stringify({
-            email,
-            password
-          })
-        }
-      );
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify({ email, password })
+      });
 
-      const data =
-        await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Login failed"
-        );
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
       }
 
-      // ログイン成功 → ダッシュボードへ
       router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
-      setError(
-        err.message ||
-          "Login error"
-      );
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}
-    >
-      <form
-        onSubmit={handleLogin}
-        style={{
-          width: 320,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16
-        }}
-      >
-        <h2>Login</h2>
+    <div style={{ padding: 40 }}>
+      <h1>Login</h1>
 
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-        />
+      <form onSubmit={handleSubmit}>
+        <div>
+          <input
+            type="email"
+            placeholder="Email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          required
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-        />
+        <div>
+          <input
+            type="password"
+            placeholder="Password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-        >
-          {loading
-            ? "Logging in..."
-            : "Login"}
+        <button type="submit" disabled={loading}>
+          {loading ? "Loading..." : "Login"}
         </button>
-
-        {error && (
-          <div
-            style={{
-              color: "red",
-              fontSize: 14
-            }}
-          >
-            {error}
-          </div>
-        )}
       </form>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <p>
+        No account? <a href="/register">Register</a>
+      </p>
     </div>
   );
 }
+
