@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,49 +8,404 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
 
+enum ApiKeyScope {
+  INGEST
+  READ
+  ADMIN
+}
+
+enum Provider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+  OTHER
+}
+
+enum UsageUnit {
+  TOKENS
+  REQUESTS
+}
+
+enum BudgetPeriod {
+  MONTHLY
+}
+
+enum AlertRuleType {
+  BUDGET_THRESHOLD
+  ANOMALY_SPIKE
+  ERROR_SPIKE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  ACK
+  RESOLVED
+  CLOSED
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  API_KEY
+}
 
 model User {
-  id              String      @id @default(uuid())
-  email           String      @unique
-  password        String
-  monthlyLimit    Float       @default(10.0)  // USD
-  maxTokensPerReq Int         @default(2000)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                String     @id @default(cuid())
+  email             String     @unique
+  name              String?
+  passwordHash      String
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
-  apiKeys         ApiKey[]
-  executions      Execution[]
+  sessions          Session[]
+  memberships       WorkspaceMember[]
+  ownedWorkspaces   Workspace[] @relation("WorkspaceOwner")
+
+  auditEvents       AuditEvent[]
+  feedback          Feedback[]
 
   @@index([createdAt])
 }
 
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  ip          String?
+  userAgent   String?
 
-model ApiKey {
-  id        String   @id @default(uuid())
-  name      String
-  key       String   @unique
-  userId    String
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members     WorkspaceMember[]
+  apiKeys     WorkspaceApiKey[]
 
-model Execution {
-  id               String   @id @default(uuid())
-  userId           String
-  model            String
-  prompt           String   // ← 追加
-  output           String
-  promptTokens     Int
-  completionTokens Int
-  totalCost        Float
-  createdAt        DateTime @default(now())
+  usageEvents UsageEvent[]
+  usageDaily  UsageDailyRollup[]
+  providerRates ProviderRate[]
 
-  user User @relation(fields: [userId], references: [id])
+  budgets     Budget[]
+  alertRules  AlertRule[]
+  incidents   Incident[]
+  exports     ExportJob[]
+  webhooks    WebhookEndpoint[]
+  auditEvents AuditEvent[]
+  feedback    Feedback[]
+
+  @@index([ownerId])
+  @@index([createdAt])
 }
 
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+model WorkspaceApiKey {
+  id            String      @id @default(cuid())
+  workspaceId   String
+  name          String
+  scope         ApiKeyScope @default(INGEST)
+  keyHash       String      @unique
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime    @default(now())
+
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([revokedAt])
+}
+
+model ProviderRate {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  provider      Provider
+  model         String
+  currency      String   @default("USD")
+  inputPer1M    Decimal  @db.Decimal(18, 8)
+  outputPer1M   Decimal  @db.Decimal(18, 8)
+  effectiveFrom DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([provider, model])
+  @@index([effectiveFrom])
+}
+
+model UsageEvent {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  provider      Provider
+  model         String
+  unit          UsageUnit @default(TOKENS)
+
+  inputTokens   Int       @default(0)
+  outputTokens  Int       @default(0)
+  totalTokens   Int       @default(0)
+
+  requestCount  Int       @default(1)
+  costUsd       Decimal   @db.Decimal(18, 8)
+
+  userId        String?
+  project       String?
+  endpoint      String?
+  statusCode    Int?
+  errorCode     String?
+  traceId       String?
+
+  occurredAt    DateTime
+  createdAt     DateTime  @default(now())
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, occurredAt])
+  @@index([workspaceId, model, occurredAt])
+  @@index([workspaceId, provider, occurredAt])
+  @@index([userId])
+  @@index([project])
+  @@index([endpoint])
+  @@index([traceId])
+}
+
+model UsageDailyRollup {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  day           DateTime
+
+  provider      Provider?
+  model         String?
+  userId        String?
+  project       String?
+
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  totalTokens   Int      @default(0)
+  requestCount  Int      @default(0)
+  costUsd       Decimal  @db.Decimal(18, 8)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, day])
+  @@index([workspaceId, provider, day])
+  @@index([workspaceId, model, day])
+  @@index([workspaceId, userId, day])
+  @@index([workspaceId, project, day])
+}
+
+model Budget {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  name          String
+  period        BudgetPeriod  @default(MONTHLY)
+
+  currency      String        @default("USD")
+  amountUsd     Decimal       @db.Decimal(18, 2)
+
+  scopeProvider Provider?
+  scopeModel    String?
+  scopeUserId   String?
+  scopeProject  String?
+
+  thresholdPct  Int           @default(80)
+  isActive      Boolean       @default(true)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([isActive])
+  @@index([period])
+}
+
+model AlertRule {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  type          AlertRuleType
+  severity      AlertSeverity  @default(MEDIUM)
+  name          String
+  isEnabled     Boolean        @default(true)
+
+  budgetId      String?
+  thresholdPct  Int?
+  windowMinutes Int?
+
+  notifyEmail   Boolean        @default(true)
+  notifySlack   Boolean        @default(false)
+  notifyWebhook Boolean        @default(false)
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  budget        Budget?        @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  incidents     Incident[]
+
+  @@index([workspaceId])
+  @@index([type])
+  @@index([isEnabled])
+  @@index([budgetId])
+}
+
+model Incident {
+  id            String          @id @default(cuid())
+  workspaceId   String
+  ruleId        String?
+  status        IncidentStatus  @default(OPEN)
+  severity      AlertSeverity   @default(MEDIUM)
+
+  title         String
+  summary       String?
+  dedupeKey     String?
+
+  firstSeenAt   DateTime
+  lastSeenAt    DateTime
+  resolvedAt    DateTime?
+
+  metadataJson  Json?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rule          AlertRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, lastSeenAt])
+  @@index([ruleId])
+  @@index([dedupeKey])
+}
+
+model ExportJob {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  status        ExportStatus  @default(QUEUED)
+  kind          String
+  paramsJson    Json
+  filePath      String?
+  error         String?
+
+  createdAt     DateTime      @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([status])
+}
+
+model WebhookEndpoint {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  name          String
+  url           String
+  secretHash    String
+  isEnabled     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([isEnabled])
+}
+
+model AuditEvent {
+  id            String         @id @default(cuid())
+  workspaceId   String?
+  actorType     AuditActorType
+  actorUserId   String?
+  actorApiKeyId String?
+
+  action        String
+  targetType    String?
+  targetId      String?
+  ip            String?
+  userAgent     String?
+  metadataJson  Json?
+
+  createdAt     DateTime       @default(now())
+
+  actorUser     User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  workspace     Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetType, targetId])
+}
+
+model Feedback {
+  id            String   @id @default(cuid())
+  workspaceId   String?
+  userId        String?
+  runId         String
+  pagePath      String?
+  message       String
+  contextJson   Json?
+  createdAt     DateTime @default(now())
+
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([runId])
+  @@index([workspaceId])
+  @@index([userId])
+}
