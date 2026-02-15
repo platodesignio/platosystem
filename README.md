@@ -1,49 +1,32 @@
+<!-- plato-system/README.md -->
 # Plato System
 
-AI Cost Control SaaS
+Next.js monolith (App Router) + internal API Routes + PostgreSQL (Prisma) + Vercel deployment.
 
-Plato System is a minimal AI execution gateway with strict cost control.
-It prevents token overuse, enforces monthly limits, and provides full usage visibility.
+This repository is structured for a production dashboard that tracks AI usage/cost, budgets, alerts, reports/exports, integrations, billing, and audit logs.
 
----
+## Local run
 
-## Architecture
+1) Install
+- `npm i`
 
-Next.js (App Router)
-Internal API Routes
-PostgreSQL
-Prisma ORM
-JWT Authentication
-OpenAI Integration
+2) Configure
+- copy `.env.example` to `.env` and fill values
 
-Monolithic deployment model optimized for Vercel.
+3) DB
+- `npm run prisma:generate`
+- `npm run db:push` (or `npm run prisma:migrate` in production)
 
----
+4) Start
+- `npm run dev`
 
-## Features
+## Production (Vercel)
 
-- User authentication (JWT + httpOnly cookie)
-- Monthly spending limit enforcement
-- Per-request token limit enforcement
-- Token usage estimation
-- Real token usage validation
-- Cost calculation (prompt / completion separated)
-- API key management (hashed storage)
-- Execution history tracking
-- Model usage breakdown
-- Dashboard analytics
+- Set Environment Variables in Vercel (same keys as `.env.example`)
+- Use `npm run build` as Build Command
+- Use `npm run start` as Start Command (Vercel handles this automatically for Next.js)
 
----
+## Notes
 
-## Requirements
-
-Node.js >= 18.17
-PostgreSQL database
-OpenAI API key
-
----
-
-## Environment Variables
-
-Create `.env.local`:
-
+- Protected pages are gated by a `plato_session` cookie in `middleware.ts`.
+- API routes are not gated by middleware; authentication/authorization is enforced inside route handlers.
