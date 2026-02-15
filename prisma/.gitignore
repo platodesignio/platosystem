@@ -1,0 +1,6 @@
+# prisma/.gitignore
+# Keep Prisma schema in git; migrations are tracked in production.
+!.gitignore
+!schema.prisma
+!migrations/
+migrations/**/migration_lock.toml
