@@ -1,43 +1,23 @@
+// plato-system/next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-
-  // 本番ビルド最適化
-  swcMinify: true,
-
-  // サーバー専用パッケージをバンドル対象から除外
-  serverExternalPackages: ["@prisma/client", "prisma"],
-
+  poweredByHeader: false,
   experimental: {
-    serverActions: false
+    typedRoutes: true
   },
-
-  // 本番でconsole.logを削除（errorは残す）
-  compiler: {
-    removeConsole:
-      process.env.NODE_ENV === "production"
-        ? { exclude: ["error"] }
-        : false
+  images: {
+    formats: ["image/avif", "image/webp"]
   },
-
-  // セキュリティヘッダ（軽量版）
-  async headers() {
+  headers: async () => {
     return [
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "X-Frame-Options",
-            value: "DENY"
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff"
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin"
-          }
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" }
         ]
       }
     ];
