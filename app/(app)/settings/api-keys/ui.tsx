@@ -154,4 +154,62 @@ export default function ApiKeysClient({ initialKeys }: { initialKeys: KeyRow[] }
             <div className="text-xs text-white/50">Active: {activeCount}</div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white
+          <div className="mt-6 rounded-2xl border border-white/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="text-white/60 border-b border-white/10">
+                <tr>
+                  <th className="text-left px-5 py-3">Name</th>
+                  <th className="text-left px-5 py-3">Scope</th>
+                  <th className="text-left px-5 py-3">Status</th>
+                  <th className="text-right px-5 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {keys.map((k) => (
+                  <tr key={k.id} className="border-b border-white/5 hover:bg-white/5 transition">
+                    <td className="px-5 py-3">{k.name}</td>
+                    <td className="px-5 py-3">{k.scope}</td>
+                    <td className="px-5 py-3">{k.revokedAt ? "Revoked" : "Active"}</td>
+                    <td className="px-5 py-3 text-right">
+                      {k.revokedAt ? (
+                        <span className="text-white/40">-</span>
+                      ) : (
+                        <button
+                          onClick={() => revoke(k.id)}
+                          disabled={busy}
+                          className="text-white/70 hover:text-white transition"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {keys.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-white/60">
+                      No keys.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 text-xs text-white/45 leading-relaxed">
+            Use INGEST keys for /api/usage/ingest. ADMIN keys should be limited to trusted systems.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-white/60">{label}</div>
+      {children}
+    </div>
+  );
+}
