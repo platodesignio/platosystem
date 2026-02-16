@@ -1,22 +1,8 @@
 import { NextResponse } from "next/server";
-
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+import { cookies } from "next/headers";
 
 export async function POST() {
-  const response = NextResponse.json({
-    success: true
-  });
-
-  response.cookies.set({
-    name: "token",
-    value: "",
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0
-  });
-
-  return response;
+  cookies().delete("plato_user");
+  cookies().delete("plato_workspace");
+  return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_APP_URL));
 }
